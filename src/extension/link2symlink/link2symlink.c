@@ -295,7 +295,11 @@ static int handle_sysexit_end(Tracee *tracee)
 			if (status < 0)
 				return status;
 		} else {
+#ifdef STATX_TYPE
 			if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat || sysnum == PR_statx)
+#else
+			if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat)
+#endif
 				sysarg_path = SYSARG_2;
 			else
 				sysarg_path = SYSARG_1;

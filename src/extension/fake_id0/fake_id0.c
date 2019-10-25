@@ -645,8 +645,10 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 		/* Get the address of the 'stat' structure.  */
 		if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat) {
 			sysarg = SYSARG_3;
+#ifdef STATX_TYPE
 		} else if (sysnum == PR_statx) {
 			sysarg = SYSARG_5;
+#endif
 		} else {
 			sysarg = SYSARG_2;
 		}

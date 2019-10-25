@@ -345,5 +345,7 @@ static const Sysnum sysnums_sh4[] = {
 	[ 370 ] = PR_sched_getattr,
 	[ 371 ] = PR_renameat2,
 /* */
+#ifdef STATX_TYPE
         [ 383 ] =  PR_statx,
+#endif
 };
