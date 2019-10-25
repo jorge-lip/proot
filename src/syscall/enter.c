@@ -389,8 +389,9 @@ int translate_syscall_enter(Tracee *tracee)
 		else
 			status = translate_sysarg(tracee, SYSARG_1, REGULAR);
 		break;
-
+#ifdef STATX_TYPE
 	case PR_statx:
+#endif
 	case PR_fchownat:
 	case PR_fstatat64:
 	case PR_newfstatat:

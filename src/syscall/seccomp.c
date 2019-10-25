@@ -410,7 +410,9 @@ static FilteredSysnum proot_sysnums[] = {
 	{ PR_utimes,		0 },
 	{ PR_wait4,		FILTER_SYSEXIT },
 	{ PR_waitpid,		FILTER_SYSEXIT },
+#ifdef STATX_TYPE
 	{ PR_statx,		0 },
+#endif
 	FILTERED_SYSNUM_END,
 };
 
