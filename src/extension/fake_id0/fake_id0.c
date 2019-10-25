@@ -128,7 +128,9 @@ static FilteredSysnum filtered_sysnums[] = {
 	{ PR_stat64,		FILTER_SYSEXIT },
 	{ PR_statfs,		FILTER_SYSEXIT },
 	{ PR_statfs64,		FILTER_SYSEXIT },
+#ifdef STATX_TYPE
 	{ PR_statx,		FILTER_SYSEXIT },
+#endif
 	FILTERED_SYSNUM_END,
 };
 
@@ -205,7 +207,9 @@ static void override_permissions(const Tracee *tracee, const char *path, bool is
 		case PR_stat64:
 		case PR_statfs:
 		case PR_statfs64:
+#ifdef STATX_TYPE
 		case PR_statx:
+#endif
 			return;
 
 		/* Otherwise: restore the previous mode of the final component.  */
@@ -510,7 +514,9 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 	word_t sysnum;
 	word_t result;
 	int status;
+#ifdef STATX_TYPE
 	struct statx finalStatxbuf;
+#endif
 
 	sysnum = get_sysnum(tracee, ORIGINAL);
 	switch (sysnum) {
@@ -615,8 +621,9 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 
 		return 0;
 	}
-
+#ifdef STATX_TYPE
 	case PR_statx:
+#endif
 	case PR_fstatat64:
 	case PR_newfstatat:
 	case PR_stat64:
@@ -650,6 +657,7 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 		assert(__builtin_types_compatible_p(uid_t, uint32_t));
 		assert(__builtin_types_compatible_p(gid_t, uint32_t));
 
+#ifdef STATX_TYPE
 		if (sysnum == PR_statx) {
 			status = read_data(tracee, &finalStatxbuf, address, sizeof(finalStatxbuf));
                         if (status < 0) 
@@ -660,6 +668,7 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
                         	status = write_data(tracee, address, &finalStatxbuf, sizeof(finalStatxbuf));
 			}
 		} else {
+#endif
 	 		/* Get the uid & gid values from the 'stat' structure.  */
 			uid = peek_uint32(tracee, address + offsetof_stat_uid(tracee));
 			if (errno != 0)
@@ -676,7 +685,9 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 
 			if (gid == getgid())
 				poke_uint32(tracee, address + offsetof_stat_gid(tracee), config->sgid);
+#ifdef STATX_TYPE
 		}
+#endif
 
 		return 0;
 	}

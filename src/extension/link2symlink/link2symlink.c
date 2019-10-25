@@ -263,7 +263,9 @@ static int handle_sysexit_end(Tracee *tracee)
 	case PR_lstat64:                   //int lstat(const char *path, struct stat *buf);
 	case PR_fstat64:                   //int fstat(int fd, struct stat *buf);
 	case PR_stat:                      //int stat(const char *path, struct stat *buf);
+#ifdef STATX_TYPE
 	case PR_statx:                     //int int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
+#endif
 	case PR_lstat:                     //int lstat(const char *path, struct stat *buf);
 	case PR_fstat: {                   //int fstat(int fd, struct stat *buf);
 		word_t result;
@@ -277,7 +279,9 @@ static int handle_sysexit_end(Tracee *tracee)
 		char final[PATH_MAX];
 		char * name;
 		struct stat finalStat;
+#ifdef STATX_TYPE
 		struct statx finalStatxbuf;
+#endif
 
 		/* Override only if it succeed.  */
 		result = peek_reg(tracee, CURRENT, SYSARG_RESULT);
@@ -353,6 +357,7 @@ static int handle_sysexit_end(Tracee *tracee)
 		else
 			sysarg_stat = SYSARG_2;
 
+#ifdef STATX_TYPE
 		if (sysnum == PR_statx) {
 			status = read_data(tracee, &finalStatxbuf, peek_reg(tracee, ORIGINAL, SYSARG_5), sizeof(finalStatxbuf));
 			if (status < 0)
@@ -362,10 +367,13 @@ static int handle_sysexit_end(Tracee *tracee)
 			if (status < 0)
 				return status;
 		} else {
+#endif
 			status = write_data(tracee, peek_reg(tracee, ORIGINAL,  sysarg_stat), &finalStat, sizeof(finalStat));
 			if (status < 0)
 				return status;
+#ifdef STATX_TYPE
 		}
+#endif
 
 		return 0;
 	}
@@ -444,7 +452,9 @@ int link2symlink_callback(Extension *extension, ExtensionEvent event,
 			{ PR_rename,		FILTER_SYSEXIT },
 			{ PR_renameat,		FILTER_SYSEXIT },
 			{ PR_renameat2,		FILTER_SYSEXIT },
+#ifdef STATX_TYPE
 			{ PR_statx,		FILTER_SYSEXIT },
+#endif
 			FILTERED_SYSNUM_END,
 		};
 		extension->filtered_sysnums = filtered_sysnums;
