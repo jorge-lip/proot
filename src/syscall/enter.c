@@ -390,6 +390,7 @@ int translate_syscall_enter(Tracee *tracee)
 			status = translate_sysarg(tracee, SYSARG_1, REGULAR);
 		break;
 
+	case PR_statx:
 	case PR_fchownat:
 	case PR_fstatat64:
 	case PR_newfstatat:
@@ -400,10 +401,17 @@ int translate_syscall_enter(Tracee *tracee)
 		status = get_sysarg_path(tracee, path, SYSARG_2);
 		if (status < 0)
 			break;
-
+/*
 		flags = (  syscall_number == PR_fchownat
 			|| syscall_number == PR_name_to_handle_at)
 			? peek_reg(tracee, CURRENT, SYSARG_5)
+			: peek_reg(tracee, CURRENT, SYSARG_4);
+*/
+		flags = (  syscall_number == PR_fchownat
+			|| syscall_number == PR_name_to_handle_at)
+			? peek_reg(tracee, CURRENT, SYSARG_5)
+			: ( syscall_number == PR_statx )
+			? peek_reg(tracee, CURRENT, SYSARG_3)
 			: peek_reg(tracee, CURRENT, SYSARG_4);
 
 		if ((flags & AT_SYMLINK_NOFOLLOW) != 0)

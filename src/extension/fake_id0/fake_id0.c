@@ -128,6 +128,7 @@ static FilteredSysnum filtered_sysnums[] = {
 	{ PR_stat64,		FILTER_SYSEXIT },
 	{ PR_statfs,		FILTER_SYSEXIT },
 	{ PR_statfs64,		FILTER_SYSEXIT },
+	{ PR_statx,		FILTER_SYSEXIT },
 	FILTERED_SYSNUM_END,
 };
 
@@ -204,6 +205,7 @@ static void override_permissions(const Tracee *tracee, const char *path, bool is
 		case PR_stat64:
 		case PR_statfs:
 		case PR_statfs64:
+		case PR_statx:
 			return;
 
 		/* Otherwise: restore the previous mode of the final component.  */
@@ -507,6 +509,8 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 {
 	word_t sysnum;
 	word_t result;
+	int status;
+	struct statx finalStatxbuf;
 
 	sysnum = get_sysnum(tracee, ORIGINAL);
 	switch (sysnum) {
@@ -612,6 +616,7 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 		return 0;
 	}
 
+	case PR_statx:
 	case PR_fstatat64:
 	case PR_newfstatat:
 	case PR_stat64:
@@ -631,10 +636,13 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 			return 0;
 
 		/* Get the address of the 'stat' structure.  */
-		if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat)
+		if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat) {
 			sysarg = SYSARG_3;
-		else
+		} else if (sysnum == PR_statx) {
+			sysarg = SYSARG_5;
+		} else {
 			sysarg = SYSARG_2;
+		}
 
 		address = peek_reg(tracee, ORIGINAL, sysarg);
 
@@ -642,22 +650,33 @@ static int handle_sysexit_end(Tracee *tracee, Config *config)
 		assert(__builtin_types_compatible_p(uid_t, uint32_t));
 		assert(__builtin_types_compatible_p(gid_t, uint32_t));
 
-		/* Get the uid & gid values from the 'stat' structure.  */
-		uid = peek_uint32(tracee, address + offsetof_stat_uid(tracee));
-		if (errno != 0)
-			uid = 0; /* Not fatal.  */
+		if (sysnum == PR_statx) {
+			status = read_data(tracee, &finalStatxbuf, address, sizeof(finalStatxbuf));
+                        if (status < 0) 
+                                return 0;
+			if (finalStatxbuf.stx_uid == getuid() || finalStatxbuf.stx_gid == getgid()) {
+				finalStatxbuf.stx_uid = config->suid;
+				finalStatxbuf.stx_gid = config->sgid;
+                        	status = write_data(tracee, address, &finalStatxbuf, sizeof(finalStatxbuf));
+			}
+		} else {
+	 		/* Get the uid & gid values from the 'stat' structure.  */
+			uid = peek_uint32(tracee, address + offsetof_stat_uid(tracee));
+			if (errno != 0)
+				uid = 0; /* Not fatal.  */
 
-		gid = peek_uint32(tracee, address + offsetof_stat_gid(tracee));
-		if (errno != 0)
-			gid = 0; /* Not fatal.  */
+			gid = peek_uint32(tracee, address + offsetof_stat_gid(tracee));
+			if (errno != 0)
+				gid = 0; /* Not fatal.  */
 
-		/* Override only if the file is owned by the current user.
-		 * Errors are not fatal here.  */
-		if (uid == getuid())
-			poke_uint32(tracee, address + offsetof_stat_uid(tracee), config->suid);
+			/* Override only if the file is owned by the current user.
+			 * Errors are not fatal here.  */
+			if (uid == getuid())
+				poke_uint32(tracee, address + offsetof_stat_uid(tracee), config->suid);
 
-		if (gid == getgid())
-			poke_uint32(tracee, address + offsetof_stat_gid(tracee), config->sgid);
+			if (gid == getgid())
+				poke_uint32(tracee, address + offsetof_stat_gid(tracee), config->sgid);
+		}
 
 		return 0;
 	}

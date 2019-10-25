@@ -263,6 +263,7 @@ static int handle_sysexit_end(Tracee *tracee)
 	case PR_lstat64:                   //int lstat(const char *path, struct stat *buf);
 	case PR_fstat64:                   //int fstat(int fd, struct stat *buf);
 	case PR_stat:                      //int stat(const char *path, struct stat *buf);
+	case PR_statx:                     //int int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf);
 	case PR_lstat:                     //int lstat(const char *path, struct stat *buf);
 	case PR_fstat: {                   //int fstat(int fd, struct stat *buf);
 		word_t result;
@@ -276,6 +277,7 @@ static int handle_sysexit_end(Tracee *tracee)
 		char final[PATH_MAX];
 		char * name;
 		struct stat finalStat;
+		struct statx finalStatxbuf;
 
 		/* Override only if it succeed.  */
 		result = peek_reg(tracee, CURRENT, SYSARG_RESULT);
@@ -289,7 +291,7 @@ static int handle_sysexit_end(Tracee *tracee)
 			if (status < 0)
 				return status;
 		} else {
-			if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat)
+			if (sysnum == PR_fstatat64 || sysnum == PR_newfstatat || sysnum == PR_statx)
 				sysarg_path = SYSARG_2;
 			else
 				sysarg_path = SYSARG_1;
@@ -351,9 +353,19 @@ static int handle_sysexit_end(Tracee *tracee)
 		else
 			sysarg_stat = SYSARG_2;
 
-		status = write_data(tracee, peek_reg(tracee, ORIGINAL,  sysarg_stat), &finalStat, sizeof(finalStat));
-		if (status < 0)
-			return status;
+		if (sysnum == PR_statx) {
+			status = read_data(tracee, &finalStatxbuf, peek_reg(tracee, ORIGINAL, SYSARG_5), sizeof(finalStatxbuf));
+			if (status < 0)
+				return status;
+			finalStatxbuf.stx_nlink = finalStat.st_nlink;
+			status = write_data(tracee, peek_reg(tracee, ORIGINAL, SYSARG_5), &finalStatxbuf, sizeof(finalStatxbuf));
+			if (status < 0)
+				return status;
+		} else {
+			status = write_data(tracee, peek_reg(tracee, ORIGINAL,  sysarg_stat), &finalStat, sizeof(finalStat));
+			if (status < 0)
+				return status;
+		}
 
 		return 0;
 	}
@@ -431,6 +443,8 @@ int link2symlink_callback(Extension *extension, ExtensionEvent event,
 			{ PR_stat64,		FILTER_SYSEXIT },
 			{ PR_rename,		FILTER_SYSEXIT },
 			{ PR_renameat,		FILTER_SYSEXIT },
+			{ PR_renameat2,		FILTER_SYSEXIT },
+			{ PR_statx,		FILTER_SYSEXIT },
 			FILTERED_SYSNUM_END,
 		};
 		extension->filtered_sysnums = filtered_sysnums;
@@ -453,6 +467,7 @@ int link2symlink_callback(Extension *extension, ExtensionEvent event,
 			break;
 
 		case PR_renameat:
+		case PR_renameat2:
 			/*int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
 			 *If newpath is a psuedo hard link decrement the link count.
 			 */
