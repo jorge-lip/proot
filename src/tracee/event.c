@@ -2,7 +2,7 @@
  *
  * This file is part of PRoot.
  *
- * Copyright (C) 2015 STMicroelectronics
+ * Copyright (C) 2014 STMicroelectronics
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -20,6 +20,7 @@
  * 02110-1301 USA.
  */
 
+#include <stdio.h>
 #include <sched.h>      /* CLONE_*,  */
 #include <sys/types.h>  /* pid_t, */
 #include <sys/ptrace.h> /* ptrace(1), PTRACE_*, */
@@ -33,8 +34,6 @@
 #include <assert.h>     /* assert(3), */
 #include <stdlib.h>     /* atexit(3), getenv(3), */
 #include <talloc.h>     /* talloc_*, */
-#include <inttypes.h>   /* PRI*, */
-#include <linux/version.h> /* KERNEL_VERSION, */
 
 #include "tracee/event.h"
 #include "cli/note.h"
@@ -49,6 +48,7 @@
 #include "attribute.h"
 #include "compat.h"
 
+
 /**
  * Start @tracee->exe with the given @argv[].  This function
  * returns -errno if an error occurred, otherwise 0.
@@ -61,7 +61,8 @@ int launch_process(Tracee *tracee, char *const argv[])
 
 	/* Warn about open file descriptors. They won't be
 	 * translated until they are closed. */
-	list_open_fd(tracee);
+	if (tracee->verbose > 0)
+		list_open_fd(tracee);
 
 	pid = fork();
 	switch(pid) {
@@ -206,6 +207,30 @@ static void print_talloc_hierarchy(int signum, siginfo_t *siginfo UNUSED, void *
 static int last_exit_status = -1;
 
 /**
+ * Check if kernel >= 4.8
+ */
+bool is_kernel_4_8(void) {
+	struct utsname utsname;
+        int status;
+        static int version_48 = -1;
+        static int major = 0;
+        static int minor = 0;
+
+	if (version_48 != -1)
+		return version_48;
+
+        version_48 = false;
+	status = uname(&utsname);
+	if (status < 0)
+		return false;
+	sscanf(utsname.release, "%d.%d", &major, &minor);
+	if (major >= 4)
+		if (minor >= 8)
+			version_48 = true;
+	return version_48;
+}
+
+/**
  * Check if this instance of PRoot can *technically* handle @tracee.
  */
 static void check_architecture(Tracee *tracee)
@@ -242,7 +267,8 @@ static void check_architecture(Tracee *tracee)
 		return;
 
 	note(tracee, INFO, USER,
-		"A 64-bit version that supports 32-bit binaries is required");
+		"Get a 64-bit version that supports 32-bit binaries here: "
+		"http://static.proot.me/proot-x86_64");
 }
 
 /**
@@ -362,7 +388,8 @@ int event_loop()
 int handle_tracee_event(Tracee *tracee, int tracee_status)
 {
 	static bool seccomp_detected = false;
-	static bool seccomp_enabled = false;
+	static bool seccomp_enabled = false; /* added for 4.8.0 */
+	pid_t pid = tracee->pid;
 	long status;
 	int signal;
 
@@ -388,17 +415,14 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 
 	if (WIFEXITED(tracee_status)) {
 		last_exit_status = WEXITSTATUS(tracee_status);
-		VERBOSE(tracee, 1,
-			"vpid %" PRIu64 ": exited with status %d",
-			tracee->vpid, last_exit_status);
-		terminate_tracee(tracee);
+		VERBOSE(tracee, 1, "pid %d: exited with status %d", pid, last_exit_status);
+		tracee->terminated = true;
 	}
 	else if (WIFSIGNALED(tracee_status)) {
 		check_architecture(tracee);
 		VERBOSE(tracee, (int) (last_exit_status != -1),
-			"vpid %" PRIu64 ": terminated with signal %d",
-			tracee->vpid, WTERMSIG(tracee_status));
-		terminate_tracee(tracee);
+			"pid %d: terminated with signal %d", pid, WTERMSIG(tracee_status));
+		tracee->terminated = true;
 	}
 	else if (WIFSTOPPED(tracee_status)) {
 		/* Don't use WSTOPSIG() to extract the signal
@@ -435,7 +459,7 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 			status = ptrace(PTRACE_SETOPTIONS, tracee->pid, NULL,
 					default_ptrace_options | PTRACE_O_TRACESECCOMP);
 			if (status < 0) {
-                seccomp_enabled = false;
+				seccomp_enabled = false;
 				/* ... otherwise use default options only.  */
 				status = ptrace(PTRACE_SETOPTIONS, tracee->pid, NULL,
 						default_ptrace_options);
@@ -444,62 +468,102 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 					exit(EXIT_FAILURE);
 				}
 			}
-            else {
-                if (getenv("PROOT_NO_SECCOMP") == NULL)
-                    seccomp_enabled = true;
-            }
+			else {
+				if (getenv("PROOT_NO_SECCOMP") == NULL)
+					seccomp_enabled = true;
+			}
 		}
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)
-
 			/* Fall through. */
 		case SIGTRAP | PTRACE_EVENT_SECCOMP2 << 8:
 		case SIGTRAP | PTRACE_EVENT_SECCOMP << 8:
 
-            if (!seccomp_detected && seccomp_enabled) {
-                VERBOSE(tracee, 1, "ptrace acceleration (seccomp mode 2) enabled");
-                tracee->seccomp = ENABLED;
-                seccomp_detected = true;
-            }
+                	if (!seccomp_detected && seccomp_enabled && is_kernel_4_8()) {
+				VERBOSE(tracee, 1, "ptrace acceleration (seccomp mode 2) enabled");
+				tracee->seccomp = ENABLED;
+				seccomp_detected = true;
+			}
 
-            if (signal == (SIGTRAP | PTRACE_EVENT_SECCOMP2 << 8) ||
-                    signal == (SIGTRAP | PTRACE_EVENT_SECCOMP << 8)) {
+			if (signal == (SIGTRAP | PTRACE_EVENT_SECCOMP2 << 8) ||
+                            signal == (SIGTRAP | PTRACE_EVENT_SECCOMP << 8)) {
 
-                unsigned long flags = 0;
-                signal = 0;
+				unsigned long flags = 0;
+				signal = 0;
+	
+				if (is_kernel_4_8()) {
+					/* SECCOMP TRAP can only be received for
+ 					 * sysenter events, ignore otherwise */
+					if (!IS_IN_SYSENTER(tracee)) {
+						tracee->restart_how = PTRACE_CONT;
+						return 0;
+                                	}
+                                        status = ptrace(PTRACE_GETEVENTMSG, tracee->pid, NULL, &flags);
+                                        if (status < 0)
+                                                break;
 
-                /* SECCOMP TRAP can only be received for
-                 * sysenter events, ignore otherwise */
-                if (!IS_IN_SYSENTER(tracee)) {
-                    tracee->restart_how = PTRACE_CONT;
-                    return 0;
-                    }
-                status = ptrace(PTRACE_GETEVENTMSG, tracee->pid, NULL, &flags);
-                if (status < 0)
-                    break;
+                                        if (tracee->seccomp == ENABLED && (flags & FILTER_SYSEXIT) == 0) {
+                        			tracee->restart_how = PTRACE_CONT;
+                        			translate_syscall(tracee);
 
-                if (tracee->seccomp == ENABLED && (flags & FILTER_SYSEXIT) == 0) {
-                    tracee->restart_how = PTRACE_CONT;
-                    translate_syscall(tracee);
+                        			if (tracee->seccomp == DISABLING)
+                                			tracee->restart_how = PTRACE_SYSCALL;
+                        			break;
+                                        }
+				}
+				else {
+                			if (!seccomp_detected) {
+						VERBOSE(tracee, 1, "ptrace acceleration (seccomp mode 2) enabled");
+						tracee->seccomp = ENABLED;
+						seccomp_detected = true;
+					}
 
-                    if (tracee->seccomp == DISABLING)
-                        tracee->restart_how = PTRACE_SYSCALL;
-                    break;
-                }
-            }
-#endif
+                        		/* Use the common ptrace flow if seccomp was
+					 * explicitely disabled for this tracee.  */
+        	                	if (tracee->seccomp != ENABLED)
+                	                	break;
+
+                        		status = ptrace(PTRACE_GETEVENTMSG, tracee->pid, NULL, &flags);
+                        		if (status < 0)
+                                		break;
+
+                        		/* Use the common ptrace flow when
+					 * sysexit has to be handled.  */
+                        		if ((flags & FILTER_SYSEXIT) != 0) {
+                                		tracee->restart_how = PTRACE_SYSCALL;
+                                		break;
+                        		}
+
+                        		/* Otherwise, handle the sysenter
+                        		 * stage right now.  */
+                        		tracee->restart_how = PTRACE_CONT;
+                        		translate_syscall(tracee);
+
+                        		/* This syscall has disabled seccomp, so move
+                        		 * the ptrace flow back to the common path to
+                       			 * ensure its sysexit will be handled.  */
+                        		if (tracee->seccomp == DISABLING)
+                                		tracee->restart_how = PTRACE_SYSCALL;
+                        		break;
+				}
+                	}
+
 			/* Fall through. */
 		case SIGTRAP | 0x80:
+
 			signal = 0;
 
 			/* This tracee got signaled then freed during the
 			   sysenter stage but the kernel reports the sysexit
 			   stage; just discard this spurious tracee/event.  */
+                        
 			if (tracee->exe == NULL) {
 				tracee->restart_how = PTRACE_CONT; /* SYSCALL OR CONT */
 				return 0;
 			}
-
+/*
+			if (signal == ( SIGTRAP | 0x80))
+				fprintf(stderr, "SYSTRAP %d %d %d\n",
+                                  tracee->seccomp, tracee->sysexit_pending, IS_IN_SYSENTER(tracee));
+*/
 			switch (tracee->seccomp) {
 			case ENABLED:
 				if (IS_IN_SYSENTER(tracee)) {
@@ -536,51 +600,6 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 				break;
 			}
 			break;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,8,0)
-
-		case SIGTRAP | PTRACE_EVENT_SECCOMP2 << 8:
-		case SIGTRAP | PTRACE_EVENT_SECCOMP << 8: {
-			unsigned long flags = 0;
-
-			signal = 0;
-
-			if (!seccomp_detected) {
-				VERBOSE(tracee, 1, "ptrace acceleration (seccomp mode 2) enabled");
-				tracee->seccomp = ENABLED;
-				seccomp_detected = true;
-			}
-
-			/* Use the common ptrace flow if seccomp was
-			 * explicitely disabled for this tracee.  */
-			if (tracee->seccomp != ENABLED)
-				break;
-
-			status = ptrace(PTRACE_GETEVENTMSG, tracee->pid, NULL, &flags);
-			if (status < 0)
-				break;
-
-			/* Use the common ptrace flow when
-			 * sysexit has to be handled.  */
-			if ((flags & FILTER_SYSEXIT) != 0) {
-				tracee->restart_how = PTRACE_SYSCALL;
-				break;
-			}
-
-			/* Otherwise, handle the sysenter
-			 * stage right now.  */
-			tracee->restart_how = PTRACE_CONT;
-			translate_syscall(tracee);
-
-			/* This syscall has disabled seccomp, so move
-			 * the ptrace flow back to the common path to
-			 * ensure its sysexit will be handled.  */
-			if (tracee->seccomp == DISABLING)
-				tracee->restart_how = PTRACE_SYSCALL;
-			break;
-		}
-
-#endif
 
 		case SIGTRAP | PTRACE_EVENT_VFORK << 8:
 			signal = 0;
