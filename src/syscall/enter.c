@@ -368,6 +368,7 @@ int translate_syscall_enter(Tracee *tracee)
 	case PR_stat64:
 	case PR_statfs:
 	case PR_statfs64:
+	case PR_statx:
 	case PR_swapoff:
 	case PR_swapon:
 	case PR_truncate:
