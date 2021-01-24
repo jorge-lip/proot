@@ -216,6 +216,11 @@ bool is_kernel_4_8(void)
 	if (version_48 != -1)
 		return version_48;
 
+	if (getenv("PROOT_NEW_SECCOMP") != NULL) {
+		version_48 = true;
+		return version_48;
+	}
+
 	version_48 = false;
 
 	struct utsname utsname;
