@@ -4,8 +4,11 @@
 *.html
 *.info
 *.o
+*.1
 doc/*.h
+*rpm-spec
 doc/public_html/
+gcov-latest/
 public/
 src/.check_process_vm.res
 src/.check_seccomp_filter.res
@@ -13,9 +16,9 @@ src/build.h
 src/care*
 src/loader*
 src/proot*
-tests/*
-!tests/*.sh.*
-!tests/*.sh
-!tests/*.c
-!tests/*.py
-!tests/*.mk
+test/*
+!test/*.sh.*
+!test/*.sh
+!test/*.c
+!test/*.py
+!test/*.mk
