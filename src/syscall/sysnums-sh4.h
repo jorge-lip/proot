@@ -348,4 +348,5 @@ static const Sysnum sysnums_sh4[] = {
 #ifdef STATX_TYPE
         [ 383 ] =  PR_statx,
 #endif
+	[ 439 ] =  PR_faccessat2,
 };

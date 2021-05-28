@@ -281,6 +281,8 @@ static const Sysnum sysnums_x32[] = {
         [ 332 ] = PR_statx,
 #endif
 /* */
+	[ 439 ] = PR_faccessat2, /* ? */
+
 	[ 512 ] = PR_rt_sigaction,
 	[ 513 ] = PR_rt_sigreturn,
 	[ 514 ] = PR_ioctl,

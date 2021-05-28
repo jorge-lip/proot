@@ -355,4 +355,5 @@ static const Sysnum sysnums_i386[] = {
 #ifdef STATX_TYPE
 	[ 383 ] =  PR_statx,
 #endif
+	[ 439 ] =  PR_faccessat2,
 };

@@ -322,4 +322,5 @@ static const Sysnum sysnums_x86_64[] = {
 #ifdef STATX_TYPE
 	[ 332 ] = PR_statx,
 #endif
+	[ 439 ] =  PR_faccessat2,
 };

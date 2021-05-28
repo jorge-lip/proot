@@ -414,6 +414,7 @@ static FilteredSysnum proot_sysnums[] = {
 #ifdef STATX_TYPE
 	{ PR_statx,		0 },
 #endif
+	{ PR_faccessat2,        0 },
 	FILTERED_SYSNUM_END,
 };
 

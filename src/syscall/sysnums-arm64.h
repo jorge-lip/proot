@@ -266,4 +266,5 @@ static const Sysnum sysnums_arm64[] = {
 #ifdef STATX_TYPE
 	[ 291 ] = PR_statx,
 #endif
+	[ 439 ] = PR_faccessat2,
 };
