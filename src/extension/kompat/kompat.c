@@ -49,6 +49,10 @@
 #include "attribute.h"
 #include "compat.h"
 
+#ifndef AT_EMPTY_PATH
+# define AT_EMPTY_PATH 0x1000
+#endif
+
 #define MAX_ARG_SHIFT 2
 typedef struct {
 	int expected_release;
@@ -239,7 +243,8 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
 		}
 		return 0;
 	}
-
+        
+	case PR_faccessat2:
 	case PR_faccessat: {
 		Modif modif = {
 			.expected_release = KERNEL_VERSION(2,6,16),
@@ -301,7 +306,53 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
 		return 0;
 	}
 
-	case PR_newfstatat:
+	case PR_newfstatat: { /* udocker-2 */
+                word_t flags;
+                char path[PATH_MAX];
+                ssize_t size;
+                Modif modif;
+
+                flags = peek_reg(tracee, CURRENT, SYSARG_4);
+                size = read_string(tracee, path, peek_reg(tracee, CURRENT, SYSARG_2), PATH_MAX);
+                if ((flags & AT_EMPTY_PATH) != 0 && ((size == 0) || (*path == NULL)) {
+                        modif = (Modif) {
+                                .expected_release = KERNEL_VERSION(2,6,16),
+                                .shifts = { [0] = {
+                                                .sysarg  = SYSARG_1,
+                                                .nb_args = 1,
+                                                .offset  = 0 },
+                                            [1] = {
+                                                .sysarg  = SYSARG_3,
+                                                .nb_args = 1,
+                                                .offset  = -1 }
+                                }
+                        };
+                } else {
+                        modif = (Modif) {
+                                .expected_release = KERNEL_VERSION(2,6,16),
+                                .shifts = { [0] = {
+                                                .sysarg  = SYSARG_2,
+                                                .nb_args = 2,
+                                                .offset  = -1 }
+                                }
+                        };
+                }
+#if defined(ARCH_X86_64)
+                if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
+                        modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_lstat : PR_lstat64);
+                else
+                        modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_stat : PR_stat64);
+#else
+                if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
+                        modif.new_sysarg_num = PR_lstat64;
+                else
+                        modif.new_sysarg_num = PR_stat64;
+#endif
+
+                modify_syscall(tracee, config, &modif);
+                return 0;
+        }
+
 	case PR_fstatat64: {
 		word_t flags;
 		Modif modif = {
