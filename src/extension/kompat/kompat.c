@@ -1033,6 +1033,7 @@ static FilteredSysnum filtered_sysnums[] = {
 	{ PR_epoll_pwait, 	0 },
 	{ PR_eventfd2, 		FILTER_SYSEXIT },
 	{ PR_execve, 		FILTER_SYSEXIT },
+	{ PR_faccessat2, 	0 },
 	{ PR_faccessat, 	0 },
 	{ PR_fchmodat, 		0 },
 	{ PR_fchownat, 		0 },
