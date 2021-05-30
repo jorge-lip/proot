@@ -329,7 +329,7 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
                 size = read_string(tracee, path, peek_reg(tracee, CURRENT, SYSARG_2), PATH_MAX);
                 if ((flags & AT_EMPTY_PATH) != 0 && ((!size) || *path == NULL)) {
                         modif = (Modif) {
-                                .expected_release = KERNEL_VERSION(2,6,16),
+                                .expected_release = KERNEL_VERSION(2,6,34),
                                 .shifts = { [0] = {
                                                 .sysarg  = SYSARG_1,
                                                 .nb_args = 1,
