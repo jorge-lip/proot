@@ -326,7 +326,7 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
                 Modif modif;
 
                 flags = peek_reg(tracee, CURRENT, SYSARG_4);
-                size = read_string(tracee, path, peek_reg(tracee, CURRENT, SYSARG_2), PATH_MAX);
+                size = read_string(tracee, path, peek_reg(tracee, ORIGINAL, SYSARG_2), PATH_MAX);
                 if ((flags & AT_EMPTY_PATH) != 0 && ((!size) || *path == NULL)) {
                         modif = (Modif) {
                                 .expected_release = KERNEL_VERSION(2,6,34),
@@ -340,6 +340,11 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
                                                 .offset  = -1 }
                                 }
                         };
+#if defined(ARCH_X86_64)
+                        	modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_fstat : PR_fstat64);
+#else
+                        	modif.new_sysarg_num = PR_fstat64;
+#endif
                 } else {
                         modif = (Modif) {
                                 .expected_release = KERNEL_VERSION(2,6,34),
@@ -349,19 +354,19 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
                                                 .offset  = -1 }
                                 }
                         };
-                }
 
 #if defined(ARCH_X86_64)
-                if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
-                        modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_lstat : PR_lstat64);
-                else
-                        modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_stat : PR_stat64);
+	                if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
+        	                modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_lstat : PR_lstat64);
+                	else
+                        	modif.new_sysarg_num = (get_abi(tracee) != ABI_2 ? PR_stat : PR_stat64);
 #else
-                if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
-                        modif.new_sysarg_num = PR_lstat64;
-                else
-                        modif.new_sysarg_num = PR_stat64;
+			if ((flags & AT_SYMLINK_NOFOLLOW) != 0)
+        	                modif.new_sysarg_num = PR_lstat64;
+              		else
+                        	modif.new_sysarg_num = PR_stat64;
 #endif
+                }
 
                 modify_syscall(tracee, config, &modif);
                 return 0;
