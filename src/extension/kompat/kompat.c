@@ -342,7 +342,7 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
                         };
                 } else {
                         modif = (Modif) {
-                                .expected_release = KERNEL_VERSION(2,6,16),
+                                .expected_release = KERNEL_VERSION(2,6,34),
                                 .shifts = { [0] = {
                                                 .sysarg  = SYSARG_2,
                                                 .nb_args = 2,
