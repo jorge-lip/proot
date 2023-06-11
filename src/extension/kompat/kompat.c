@@ -240,6 +240,20 @@ static int handle_sysenter_end(Tracee *tracee, Config *config)
 		return 0;
 	}
 
+        case PR_faccessat2: {  /*udocker*/
+                Modif modif = {
+                        .expected_release = KERNEL_VERSION(5,8,0),
+                        .new_sysarg_num   = PR_access,
+                        .shifts = { [0] = {
+                                        .sysarg  = SYSARG_2,
+                                        .nb_args = 2,
+                                        .offset  = -1 }
+                        }
+                };
+                modify_syscall(tracee, config, &modif);
+                return 0;
+        }			  
+
 	case PR_faccessat: {
 		Modif modif = {
 			.expected_release = KERNEL_VERSION(2,6,16),
@@ -979,6 +993,7 @@ static FilteredSysnum filtered_sysnums[] = {
 	{ PR_epoll_pwait, 	0 },
 	{ PR_eventfd2, 		FILTER_SYSEXIT },
 	{ PR_execve, 		FILTER_SYSEXIT },
+	{ PR_faccessat2,        0 },
 	{ PR_faccessat, 	0 },
 	{ PR_fchmodat, 		0 },
 	{ PR_fchownat, 		0 },

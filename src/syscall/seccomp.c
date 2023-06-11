@@ -385,14 +385,14 @@ static FilteredSysnum proot_sysnums[] = {
 	{ PR_removexattr,	0 },
 	{ PR_rename,		FILTER_SYSEXIT },
 	{ PR_renameat,		FILTER_SYSEXIT },
-	{ PR_renameat2,		FILTER_SYSEXIT },
+	{ PR_renameat2,		FILTER_SYSEXIT }, /*udocker*/
 	{ PR_rmdir,		0 },
 	{ PR_setrlimit,		FILTER_SYSEXIT },
 	{ PR_setxattr,		0 },
 	{ PR_socketcall,	FILTER_SYSEXIT },
 	{ PR_stat,		0 },
 	{ PR_statx,		0 },
-	{ PR_faccessat2,	0 },
+	{ PR_faccessat2,	0 }, /*udocker*/
 	{ PR_stat64,		0 },
 	{ PR_statfs,		0 },
 	{ PR_statfs64,		0 },

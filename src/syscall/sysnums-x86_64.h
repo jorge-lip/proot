@@ -320,5 +320,5 @@ static const Sysnum sysnums_x86_64[] = {
 	[ 316 ] = PR_renameat2,
 	[ 332 ] = PR_statx,
         [ 435 ] = PR_clone3,
-	[ 439 ] = PR_faccessat2,
+	[ 439 ] = PR_faccessat2, /*udocker*/
 };

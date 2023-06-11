@@ -354,4 +354,5 @@ static const Sysnum sysnums_i386[] = {
 	[ 383 ] = PR_statx,
 	[ 412 ] = PR_utimensat_time64,
         [ 435 ] = PR_clone3,
+	[ 439 ] = PR_faccessat2, /*udocker*/
 };

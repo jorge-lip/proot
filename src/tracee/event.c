@@ -219,6 +219,15 @@ static bool is_kernel_4_8(void)
 	if (version_48 != -1)
 		return version_48;
 
+	/* some kernels have the SECCOMP patches backported
+	 * udocker uses this env var to enforce the new SECCOMP
+	 * on such kernels.
+	 */
+        if (getenv("PROOT_NEW_SECCOMP") != NULL) {
+                version_48 = true;
+                return version_48;
+        }
+
 	version_48 = false;
 
 	struct utsname utsname;
@@ -477,7 +486,8 @@ static int handle_tracee_event_kernel_4_8(Tracee *tracee, int tracee_status)
 					exit(EXIT_FAILURE);
 				}
 			}
-			else {
+			/* udocker */
+			else { 
 				if (getenv("PROOT_NO_SECCOMP") == NULL)
 					seccomp_enabled = true;
 			}
@@ -705,6 +715,11 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 					exit(EXIT_FAILURE);
 				}
 			}
+                        else {
+                                if (getenv("PROOT_NO_SECCOMP") == NULL)
+                                seccomp_enabled = true;
+                        }
+
 		}
 
 			/* Fall through. */

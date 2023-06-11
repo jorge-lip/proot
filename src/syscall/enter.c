@@ -419,7 +419,7 @@ int translate_syscall_enter(Tracee *tracee)
 
 	case PR_fchmodat:
 	case PR_faccessat:
-	case PR_faccessat2:
+	case PR_faccessat2: /*udocker*/
 	case PR_futimesat:
 	case PR_mknodat:
 		dirfd = peek_reg(tracee, CURRENT, SYSARG_1);
@@ -539,7 +539,7 @@ int translate_syscall_enter(Tracee *tracee)
 		break;
 
 	case PR_renameat:
-	case PR_renameat2:
+	case PR_renameat2: /*udocker*/
 		olddirfd = peek_reg(tracee, CURRENT, SYSARG_1);
 		newdirfd = peek_reg(tracee, CURRENT, SYSARG_3);
 
