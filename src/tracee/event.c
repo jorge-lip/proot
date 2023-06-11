@@ -715,10 +715,6 @@ int handle_tracee_event(Tracee *tracee, int tracee_status)
 					exit(EXIT_FAILURE);
 				}
 			}
-                        else {
-                                if (getenv("PROOT_NO_SECCOMP") == NULL)
-                                seccomp_enabled = true;
-                        }
 
 		}
 
