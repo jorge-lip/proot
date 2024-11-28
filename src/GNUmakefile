@@ -13,7 +13,12 @@ LD       = $(CC)
 STRIP    = $(CROSS_COMPILE)strip
 OBJCOPY  = $(CROSS_COMPILE)objcopy
 OBJDUMP  = $(CROSS_COMPILE)objdump
-PYTHON   = python3
+
+#
+# udocker DISABLE PYTHON PLUGIN
+#
+#PYTHON   = python3
+PYTHON   = ""
 
 HAS_SWIG := $(shell swig -version 2>/dev/null)
 PYTHON_MAJOR_VERSION = $(shell ${PYTHON} -c "import sys; print(sys.version_info.major)" 2>/dev/null)
