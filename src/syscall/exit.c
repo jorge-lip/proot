@@ -361,6 +361,22 @@ void translate_syscall_exit(Tracee *tracee)
 			break;
 		}
 
+		/* udocker START : readlinkat input path may be empty in which case
+		 * the file descriptor argument points to a symbolic link. We need
+		 * to get the pathname of the file pointed by this file descriptor
+		 * and store it in *referer as this is needed by detranslate_path() */
+		if (syscall_number == PR_readlinkat && referer && *referer == '\0') {
+			int fd;
+			fd = peek_reg(tracee, ORIGINAL, SYSARG_1);
+			if (fd < 0)
+				break;
+		        if (readlink_proc_pid_fd(tracee->pid, fd, referer) != 0)
+				break;
+			if (*referer != '/')
+				break;
+		}
+		/* udocker END */
+
 		status = detranslate_path(tracee, referee, referer);
 		if (status < 0)
 			break;
