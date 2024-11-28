@@ -35,6 +35,11 @@
 
 #include "tracee/tracee.h"
 #include "tracee/reg.h"
+
+/* udocker START */
+#include "tracee/mem.h"
+/* udocker END */
+
 #include "path/binding.h"
 #include "syscall/sysnum.h"
 #include "tracee/event.h"
